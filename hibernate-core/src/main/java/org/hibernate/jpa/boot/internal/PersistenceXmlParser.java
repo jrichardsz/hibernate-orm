@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.persistence.PersistenceException;
 import javax.persistence.spi.PersistenceUnitTransactionType;
 import javax.xml.parsers.DocumentBuilder;
@@ -372,6 +375,8 @@ public class PersistenceXmlParser {
 							if ( StringHelper.isEmpty( propValue ) ) {
 								//fall back to the natural (Hibernate) way of description
 								propValue = extractContent( propElement, "" );
+							}else {
+								propValue = getEnvironmentValueIfApplicable(propValue);
 							}
 							persistenceUnit.getProperties().put( propName, propValue );
 						}
@@ -532,5 +537,21 @@ public class PersistenceXmlParser {
 		else {
 			return "Error parsing XML : " + error.getMessage();
 		}
+	}
+
+	public static String getEnvironmentValueIfApplicable(String unknownValueIdentifier) {
+	    String regex = "(\\$\\{[\\w\\^\\$\\s]+\\})";
+	    Matcher m = Pattern.compile(regex).matcher(unknownValueIdentifier);
+	    while (m.find()) {
+	      String environmentKey = m.group(0).replace("${", "").replace("}", "");
+	      if (environmentKey == null || environmentKey.equals("")) {
+	        continue;
+	      }
+	      String value = System.getenv(environmentKey);
+	      if (value!=null && !value.contentEquals("")) {
+	    	  unknownValueIdentifier = unknownValueIdentifier.replace(String.format("${%s}", environmentKey), value);
+	      }
+	    }
+	    return unknownValueIdentifier;
 	}
 }
